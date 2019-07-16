@@ -4,10 +4,10 @@ import random
 
 def init_weights():
     W1 = np.random.randn(4, 4) * 0.01
-    b1 = np.zeros([4, 105])
+    b1 = np.zeros([4, 1])
 
     W2 = np.random.randn(3, 4) * 0.01
-    b2 = np.zeros([3, 105])
+    b2 = np.zeros([3, 1])
     
     return W1, b1, W2, b2
 
@@ -21,20 +21,38 @@ def relu(Z):
     return Z * (Z > 0)
 
 def forward_propagation(X, W1, b1, W2, b2):
-    Z1 = np.dot(W1, X.T) + b1
+    Z1 = np.dot(W1, X) + b1
     A1 = relu(Z1)
     Z2 = np.dot(W2, A1) + b2
     A2 = softmax(Z2)
 
-    return A2
+    return A1, A2
 
-def back_propagation(A2, Y,  W1, b1, W2, b2):
+def backward_propagation(X, A1, A2, Y,  W1, b1, W2, b2, learning_rate):
     m = A2.shape[1]
-    dZ = train_y - A2
+    dZ2 = A2 - train_y 
 
-    dW2 = np.dot(dZ, A2)/ m
-    db2 = np.sum(dZ, axis = 1, keepdims = True) / m
-    dA_prev = np.dot(W2.T, dZ)
+    dW2 = np.dot(dZ2, A1.T)/ m
+    db2 = np.sum(dZ2, axis = 1, keepdims = True) / m
+    dZ1 = np.dot(W2.T, dZ2) * (1 - np.power(A1, 2))
+    dW1 = np.dot(dZ1, X.T)/ m
+    db1 = np.sum(dZ1, axis = 1, keepdims = True) / m
+
+    W1 = W1 - learning_rate * dW1
+    b1 = b1 - learning_rate * db1
+    W2 = W2 - learning_rate * dW2
+    b2 = b2 - learning_rate * db2
+
+    return W1, b1, W2, b2
+
+def cost_function(Y, A2):
+    m = Y.shape[1]
+    logprobs = np.multiply(np.log(A2), Y) + np.multiply(np.log(1 - A2) ,(1 - Y))
+    cost = - (1/ m) * np.sum(logprobs, axis = 1, keepdims = True)
+
+    #cost = float(np.squeeze(cost))
+
+    return cost
 
 def get_dataset():
     package = Package('https://datahub.io/machine-learning/iris/datapackage.json')
@@ -73,13 +91,20 @@ def get_training_and_test_data():
     test_x = np.array(test_x, dtype=float)
     test_y = np.array(test_y, dtype=float)
 
-    return train_x, train_y.T, test_x, test_y.T
+    return train_x.T, train_y.T, test_x.T, test_y.T
 
 train_x, train_y, test_x, test_y = get_training_and_test_data()
 
+print("X: " + str(train_x.shape) + " Y: " + str(train_y.shape))
 W1, b1, W2, b2 = init_weights()
 
-A2 = forward_propagation(train_x, W1, b1, W2, b2)
+print("W1: "  + str(W1.shape) + " b1 " + str(b1.shape) + " W2: "  + str(W2.shape) + " b2 " + str(b2.shape)) 
+for i in range(100):
+    A1, A2 = forward_propagation(train_x, W1, b1, W2, b2)
+    cost = cost_function(train_y, A2)
+    print("#" +str(i) + str(cost))
+    W1, b1, W2, b2 = backward_propagation(train_x, A1, A2, train_y,  W1, b1, W2, b2, 1.1)
+    
+    
 
-print (dZ)
 
